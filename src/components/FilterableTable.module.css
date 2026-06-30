@@ -1,0 +1,322 @@
+.container {
+  width: 90%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.qidArea {
+  margin-bottom: 1.25rem;
+}
+
+.qidLabel {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.qidTextarea {
+  width: 100%;
+  max-width: 520px;
+  padding: 0.6rem 0.75rem;
+  margin-top: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.qidTextarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.filterBar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.filterLabel {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  gap: 0.25rem;
+}
+
+.filterSelect,
+.filterInput {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 0.85rem;
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+  min-width: 80px;
+}
+.filterSelect:focus,
+.filterInput:focus {
+  border-color: var(--accent);
+}
+
+.filterInput {
+  width: 60px;
+}
+
+.rangeGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.sortToggle {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.sortToggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btnClear {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btnClear:hover {
+  background: #f3f4f6;
+  color: var(--text);
+}
+
+.viewTabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0;
+}
+
+.viewTab {
+  padding: 0.55rem 1.2rem;
+  border: none;
+  background: none;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.viewTab:hover {
+  color: var(--text);
+}
+
+.viewTabActive {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.resultCount {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.btnAction {
+  padding: 0.45rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btnAction:hover {
+  opacity: 0.88;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table thead {
+  background: var(--surface-alt);
+}
+
+.table th {
+  padding: 0.6rem 0.65rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: top;
+}
+
+.table tbody tr {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.table tbody tr:hover {
+  background: var(--row-hover);
+}
+.table tbody tr:nth-child(even) {
+  background: var(--row-stripe);
+}
+.table tbody tr:nth-child(even):hover {
+  background: var(--row-hover);
+}
+
+.table .expandedRow {
+  background: var(--accent-light) !important;
+}
+
+.detail {
+  margin-top: 1.25rem;
+  padding: 1.5rem;
+  border: 2px solid var(--detail-border);
+  border-radius: 10px;
+  background: var(--detail-bg);
+  color: var(--text);
+  font-size: 1.2rem;
+}
+
+.detailMeta {
+  margin-bottom: 1rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.detailSection {
+  margin-bottom: 1rem;
+}
+
+.detailSection h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.detailNote {
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
+}
+.detailNoteMine {
+  background: var(--warning-bg);
+  border-left: 3px solid var(--warning);
+}
+.detailNoteAI {
+  background: var(--note-bg);
+  border-left: 3px solid var(--note-border);
+}
+
+.detailFold {
+  margin: 0 0 0.5rem 0;
+  cursor: pointer;
+  user-select: none;
+  font-size: 1rem;
+  color: var(--text);
+}
+.detailFold:hover {
+  color: var(--accent);
+}
+
+/* 分页 */
+.pagination {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.25rem;
+  padding: 0.75rem 0;
+}
+
+.pageBtn {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 32px;
+  text-align: center;
+}
+.pageBtn:hover:not(:disabled) {
+  background: var(--row-hover);
+  border-color: var(--accent);
+}
+.pageBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pageActive {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.pageActive:hover {
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.pageEllipsis {
+  padding: 0.35rem 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.pageInfo {
+  margin-left: 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}

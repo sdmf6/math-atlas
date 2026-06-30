@@ -1,0 +1,306 @@
+%%
+%% mathatlas.sty — 高中数学题库 LaTeX 样式文件
+%% 从旧讲义 main.tex 提取，精简未用命令/宏包
+%% 与 template.tex 骨架配合使用
+%%
+\ProvidesPackage{mathatlas}
+
+% ============================================
+% 一、核心宏包
+% ============================================
+\usepackage{ctex}                     % 中文支持
+\usepackage{geometry}                 % 页面边距（可在 .tex 中覆盖）
+\usepackage{amsmath}                  % 数学公式
+\usepackage{amssymb}                  % 数学符号（\mathbb{R} 等）
+\usepackage{graphicx}                 % 图片
+\usepackage{xcolor}                   % 颜色
+\usepackage{tikz}                     % 绘图（\ans/\analysis 标签、\cir 题号圈）
+\usetikzlibrary{trees,positioning,arrows.meta}
+\usepackage{ifthen}                   % 条件判断（所有开关逻辑）
+
+% ============================================
+% 二、样式宏包
+% ============================================
+\usepackage[explicit,clearempty,pagestyles]{titlesec}  % 章节外观（必须在 fancyhdr 之前）
+\usepackage{fancyhdr}                 % 页眉页脚
+\usepackage[colorlinks=true,
+            linkcolor=mycolor,
+            urlcolor=mycolor,
+            citecolor=mycolor]{hyperref}  % 彩色链接
+\usepackage{titletoc}                 % 目录格式
+\usepackage{microtype}                % 微排版优化（被动，无命令）
+\usepackage{enumitem}                 % 有序列表格式
+\setlist[enumerate,1]{label=(\arabic*)}  % 二级编号为 (1)
+
+% ============================================
+% 三、题目相关宏包
+% ============================================
+\usepackage{exam-zh-choices}          % choices 选择题环境
+\usepackage{needspace}               % 分页控制（开题前检查剩余空间）
+\usepackage{fontawesome5}             % \faPepperHot 辣椒图标
+\usepackage{circledsteps}             % \Circled 带圈数字
+\usepackage{array}                    % choices 内部依赖
+
+% ============================================
+% 四、颜色定义
+% ============================================
+\definecolor{mycolor}{HTML}{4A0C6E}   % 主题色（紫）
+\definecolor{lajiaocolor}{HTML}{9B72B5}  % 辣椒色（浅紫）   % 主题色（紫），可通过改变代码来改变标题颜色
+% \definecolor{mycolor}{HTML}{0F0F0F} % 备选：黑色
+
+% ============================================
+% 五、页面布局
+% ============================================
+\geometry{top=2cm,bottom=3cm,right=1.8cm,left=1.8cm}
+%\geometry{paperwidth=13cm,top=0.2cm,bottom=0.5cm,right=0.5cm,left=0.5cm}  % 窄版备用
+
+\let\cleardoublepage\clearpage        % 章节紧接着上一页开始，不插空白页
+\setlength{\parindent}{0pt}           % 首行缩进为 0
+
+% ============================================
+% 六、章节样式
+% ============================================
+\titleformat{\chapter}{\centering\huge\bfseries}{}{1em}{#1}
+\titlespacing{\chapter}{0pt}{-50pt}{0pt}
+
+\renewcommand*{\thesection}{\arabic{section}}  % 节不随章编号
+
+\titleformat{\section}
+{\normalfont\zihao{-4}\bfseries\raggedright}
+{}
+{-1em}
+{\textcolor{mycolor}{【考点\thesection】 #1}}
+\titlespacing{\section}{0pt}{0pt}{12pt}
+
+% ============================================
+% 七、目录格式
+% ============================================
+\titlecontents{chapter}[0pt]{\addvspace{1.5pt}\filright\bf}
+                  {\contentspush{\color{mycolor}第\thecontentslabel\ 讲\quad}}
+                  {}{\titlerule*[10pt]{.}\contentspage}
+
+% ============================================
+% 八、页眉页脚
+% ============================================
+\pagestyle{fancy}
+\fancyhf{}                            % 清空页眉页脚
+\fancypagestyle{plain}{%
+  \fancyfoot[C]{\thepage}             % 首页页脚居中
+}
+\fancyfoot[C]{\thepage}               % 页脚居中
+\renewcommand{\headrulewidth}{0pt}    % 去掉页眉横线
+%\renewcommand{\footrulewidth}{0pt}
+
+% ============================================
+% 九、显示开关
+% ============================================
+\newboolean{showana}                  % 解析/评注
+\newboolean{showans}                  % 答案
+\newboolean{showcontext}              % 题干
+\newboolean{showlevel}                % 难度
+\newboolean{showres}                  % 题源
+\newboolean{showblank}                % 留白
+
+% 默认值（.tex 骨架中会通过预设覆盖）
+\setboolean{showres}{true}
+\setboolean{showlevel}{true}
+\setboolean{showcontext}{true}
+\setboolean{showans}{false}
+\setboolean{showana}{false}
+\setboolean{showblank}{true}
+
+% ============================================
+% 十、核心命令
+% ============================================
+
+% 答案 —— 带"答案"标签，圆角框，楷书
+\newcommand{\ans}[1]{\par\ifthenelse{\boolean{showans}}{\tikz[baseline]{\node[anchor=base,font=\bfseries\fangsong\color{mycolor},draw=mycolor!90!white,fill=white,rounded corners=0.8em,inner xsep=0.5em,thick,minimum height=1.2ex](T)at(0,0){答案};}{\kaishu #1}}{}}
+
+% 解析 —— 带"解析"标签，圆角框，楷书
+\newcommand{\analysis}[1]{\par\ifthenelse{\boolean{showana}}{\tikz[baseline]{\node[anchor=base,font=\bfseries\fangsong\color{mycolor},draw=mycolor!90!white,fill=white,rounded corners=0.8em,inner xsep=0.5em,thick,minimum height=1.2ex](T)at(0,0){解析};}{\kaishu #1}}{}}
+
+% 个人备注 —— 带"备注"标签，圆角框，楷书
+\newcommand{\memo}[1]{\par\ifthenelse{\boolean{showana}}{\tikz[baseline]{\node[anchor=base,font=\bfseries\fangsong\color{mycolor},draw=mycolor!90!white,fill=white,rounded corners=0.8em,inner xsep=0.5em,thick,minimum height=1.2ex](T)at(0,0){备注};}{\kaishu #1}}{}}
+
+% 填空题横线
+\newcommand{\fillin}{\underline{\hspace{3em}}}
+
+% 选择题括号
+\newcommand{\pick}{\mbox{(\quad)}}
+
+% 题源标注 —— 紫色仿宋
+\newcommand{\res}[1]{\ifthenelse{\boolean{showres}\AND \boolean{showcontext}}{\textcolor{mycolor}{\fangsong {(#1)}}}{}}
+
+% 辣椒图标
+\newcommand{\lajiao}{\textcolor{lajiaocolor}{\faPepperHot}}
+
+% 难度（1-5 个辣椒）
+\newcommand{\level}[1]{\ifthenelse{\boolean{showlevel}\AND \boolean{showcontext}}{%
+    \ifcase#1%
+    \or {\lajiao}%
+    \or {\lajiao\lajiao}%
+    \or {\lajiao\lajiao\lajiao}%
+    \or {\lajiao\lajiao\lajiao\lajiao}%
+    \or {\lajiao\lajiao\lajiao\lajiao\lajiao}%
+    \fi%
+}{}}
+
+% 带圈题号（TikZ 绘制）
+\newcommand*\cir[1]{\tikz[baseline=(char.base)]{%
+    \node[circle,fill=none,draw=mycolor,minimum size=0.5cm,align=center,inner sep=-1.0pt,font=\bfseries\sffamily\footnotesize\color{mycolor}] (char){#1};}
+}
+
+% ============================================
+% 十一、分页与留白
+% ============================================
+
+% 四档留白等级默认值（normal 版式）
+\newcommand{\ssBlank}{0cm}            % SS：普通选择、简单填空
+\newcommand{\sBlank}{3cm}             % S：普通填空、简单选择压轴
+\newcommand{\mBlank}{7cm}             % M：普通解答题（默认）
+\newcommand{\lBlank}{12cm}            % L：压轴解答题
+
+% needspace 阈值（内容 + 留白的预估高度）
+\newcommand{\ssNeed}{4\baselineskip}
+\newcommand{\sNeed}{8\baselineskip}
+\newcommand{\mNeed}{14\baselineskip}
+\newcommand{\lNeed}{20\baselineskip}
+
+% ---------- 版式风格 ----------
+% 全局缩放留白数值，不承诺页数
+\newcommand{\compactLayout}{%          % 紧凑：省纸、刷题
+  \renewcommand{\ssBlank}{0cm}%
+  \renewcommand{\sBlank}{2cm}%
+  \renewcommand{\mBlank}{5cm}%
+  \renewcommand{\lBlank}{9cm}%
+}
+\newcommand{\normalLayout}{%           % 标准：日常讲义、作业
+  \renewcommand{\ssBlank}{0cm}%
+  \renewcommand{\sBlank}{3cm}%
+  \renewcommand{\mBlank}{7cm}%
+  \renewcommand{\lBlank}{12cm}%
+}
+\newcommand{\spaciousLayout}{%         % 宽松：模考、板书
+  \renewcommand{\ssBlank}{1cm}%
+  \renewcommand{\sBlank}{4cm}%
+  \renewcommand{\mBlank}{9cm}%
+  \renewcommand{\lBlank}{15cm}%
+}
+
+% ============================================
+% 十二、题目环境
+% ============================================
+
+% --- exercise 环境（习题）---
+% 用法: \begin{exercise}[SS] / [S] / [M] / [L]（默认 M）
+\newcounter{exercise}
+\counterwithin{exercise}{chapter}     % 章节变化时重置
+\renewcommand{\theexercise}{\arabic{exercise}}
+
+\newenvironment{exercise}[1][]{%
+  % 根据留白等级设定留白和 needspace，默认 M
+  \ifthenelse{\equal{#1}{SS}}{%
+    \def\thisBlank{\ssBlank}%
+    \def\thisNeed{\ssNeed}%
+  }{%
+    \ifthenelse{\equal{#1}{S}}{%
+      \def\thisBlank{\sBlank}%
+      \def\thisNeed{\sNeed}%
+    }{%
+      \ifthenelse{\equal{#1}{L}}{%
+        \def\thisBlank{\lBlank}%
+        \def\thisNeed{\lNeed}%
+      }{%
+        \def\thisBlank{\mBlank}%     % 默认 M（包含未指定、[M] 或其他）
+        \def\thisNeed{\mNeed}%
+      }%
+    }%
+  }%
+  % showblank 开时才做 needspace 检查，关时跳过
+  \ifthenelse{\boolean{showblank}}{%
+    \needspace{\thisNeed}%
+  }{}%
+  \refstepcounter{exercise}
+  \par\noindent
+  {\bfseries\textcolor{mycolor}{\theexercise.}} \ignorespaces
+}{%
+  \ifthenelse{\boolean{showblank}}{%
+    \par\vspace{\thisBlank}%          % 留白
+    \vspace{\fill}%                   % 撑满剩余空间，均匀分布
+    \filbreak%                        % 空间不够则换页（仅学生版）
+  }{%
+    \par\vspace{1em}                  % 教师/对答案版：只留间距
+  }%
+}
+
+% --- example 环境（例题）---
+\newcounter{example}
+\counterwithin{example}{chapter}
+\renewcommand{\theexample}{\arabic{example}}
+
+\newenvironment{example}{%
+  \refstepcounter{example}
+  \par\noindent
+  {\bfseries\textcolor{mycolor}{例\theexample}} \ignorespaces
+}{%
+  \par\vspace{1em}
+}
+
+% --- variation 环境（变式）---
+% 变式编号跟随例题：变式1-1, 变式1-2, 变式2-1...
+\newcounter{variation}[example]
+\renewcommand{\thevariation}{\arabic{variation}}
+
+\newenvironment{variation}{%
+  \refstepcounter{variation}
+  \par\noindent
+  {\bfseries\textcolor{mycolor}{变式\theexample-\thevariation}} \ignorespaces
+}{%
+  \par\vspace{1em}
+}
+
+% ============================================
+% 十三、预设模式
+% ============================================
+
+% 学生版：只显示题干，留白打开
+\newcommand{\presetStudent}{%
+  \setboolean{showcontext}{true}%
+  \setboolean{showans}{false}%
+  \setboolean{showana}{false}%
+  \setboolean{showlevel}{true}%
+  \setboolean{showres}{true}%
+  \setboolean{showblank}{true}%
+}
+
+% 对答案版：题干 + 答案，留白关闭
+\newcommand{\presetAnswer}{%
+  \setboolean{showcontext}{true}%
+  \setboolean{showans}{true}%
+  \setboolean{showana}{false}%
+  \setboolean{showlevel}{true}%
+  \setboolean{showres}{true}%
+  \setboolean{showblank}{false}%
+}
+
+% 教师版：全显示，留白关闭
+\newcommand{\presetTeacher}{%
+  \setboolean{showcontext}{true}%
+  \setboolean{showans}{true}%
+  \setboolean{showana}{true}%
+  \setboolean{showlevel}{true}%
+  \setboolean{showres}{true}%
+  \setboolean{showblank}{false}%
+}
+
+% 幻灯片：横版，一页一题，只题干
+\newcommand{\presetSlide}{%
+  \geometry{paper=landscape,top=2cm,bottom=2cm,right=2cm,left=2cm}%
+  \setboolean{showcontext}{true}%
+  \setboolean{showans}{false}%
+  \setboolean{showana}{false}%
+  \setboolean{showlevel}{false}%
+  \setboolean{showres}{false}%
+}
+
+\endinput

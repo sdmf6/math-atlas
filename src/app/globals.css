@@ -1,0 +1,61 @@
+@import 'computer-modern/cmu-serif.css';
+@import '@fontsource/noto-sans-sc';
+
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-alt: #f8f9fb;
+  --border: #e1e4e8;
+  --text: #1a1a2e;
+  --text-muted: #6b7280;
+  --accent: #4a6cf7;
+  --accent-light: #eef1ff;
+  --warning: #f0c000;
+  --warning-bg: #fffbe6;
+  --note-bg: #f3f4f6;
+  --note-border: #9ca3af;
+  --row-stripe: #fafbfc;
+  --row-hover: #f4f6fb;
+  --detail-border: #4a90d9;
+  --detail-bg: #fafbff;
+  --katex-color: #222;
+}
+
+:root[data-theme="dark"] {
+  --bg: #121212;
+  --surface: #1e1e2e;
+  --surface-alt: #252540;
+  --border: #333355;
+  --text: #e4e4ec;
+  --text-muted: #9999bb;
+  --accent: #7b93ff;
+  --accent-light: #1e2040;
+  --warning: #e6b800;
+  --warning-bg: #2a2818;
+  --note-bg: #232338;
+  --note-border: #555577;
+  --row-stripe: #1a1a2e;
+  --row-hover: #262644;
+  --detail-border: #5566cc;
+  --detail-bg: #1a1a30;
+  --katex-color: #e4e4ec;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "CMU Serif", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}

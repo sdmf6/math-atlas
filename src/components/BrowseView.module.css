@@ -1,0 +1,185 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 1.25rem;
+  transition: border-color 0.15s;
+}
+
+.card:hover {
+  border-color: var(--accent);
+}
+
+.cardSelected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+/* 卡片头部 */
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+}
+
+.checkLabel input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.source {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.number {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.type {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+}
+
+.difficulty {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.headerActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.toggleBtn {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.toggleBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.toggleBtnActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.noteIndicator {
+  font-size: 0.8rem;
+}
+
+.obsidianLink {
+  text-decoration: none;
+  font-size: 0.9rem;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.obsidianLink:hover {
+  opacity: 1;
+}
+
+.refreshBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: 0.5;
+  padding: 2px 4px;
+  transition: opacity 0.15s;
+}
+
+.refreshBtn:hover {
+  opacity: 1;
+}
+
+/* 题干区域 */
+.questionBody {
+  line-height: 2;
+}
+
+/* 表格边框 */
+.questionBody table,
+.foldBody table {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+}
+
+.questionBody th,
+.questionBody td,
+.foldBody th,
+.foldBody td {
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.6rem;
+  text-align: left;
+}
+
+.questionBody th,
+.foldBody th {
+  background: var(--surface-alt);
+  font-weight: 600;
+}
+
+.questionBody img,
+.foldBody img {
+  max-width: 100%;
+  height: auto;
+}
+
+.loading {
+  text-align: center;
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* 折叠区域 */
+.foldSection {
+  margin-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+  padding-top: 0.5rem;
+}
+
+.foldLabel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.foldBody {
+  padding-left: 0.25rem;
+}

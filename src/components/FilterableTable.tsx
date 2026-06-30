@@ -1,0 +1,770 @@
+'use client';
+
+import { useState, useMemo, useEffect, Fragment } from 'react';
+import type { QuestionMetaLight } from '@/lib/questions';
+import JSZip from 'jszip';
+
+import MathText from '@/components/MathText';
+import BrowseView from '@/components/BrowseView';
+import { buildLatexHandout } from '@/lib/latex';
+import styles from './FilterableTable.module.css';
+
+const PAGE_SIZE = 25;
+const BROWSE_PAGE_SIZE = 10;
+
+export default function FilterableTable({ questions }: { questions: QuestionMetaLight[] }) {
+  const [grade, setGrade] = useState('');
+  const [source, setSource] = useState('');
+  const [numberMin, setNumberMin] = useState('');
+  const [numberMax, setNumberMax] = useState('');
+  const [examType, setExamType] = useState('');
+  const [difficultyMin, setDifficultyMin] = useState('');
+  const [difficultyMax, setDifficultyMax] = useState('');
+  const [knowledge, setKnowledge] = useState('');
+  const [tag, setTag] = useState('');
+  const [qidInput, setQidInput] = useState('');
+  const [page, setPage] = useState(1);
+  const [expandedQid, setExpandedQid] = useState<number | null>(null);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [showSolution, setShowSolution] = useState(false);
+  const [selectedQids, setSelectedQids] = useState<Set<number>>(new Set());
+  const [loadedContents, setLoadedContents] = useState<Record<number, Record<string, string>>>({});
+  const [loadingQid, setLoadingQid] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'table' | 'browse'>('table');
+  const [sortBy, setSortBy] = useState<'source' | 'number' | 'difficulty' | 'type'>('source');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const grades = useMemo(() => [...new Set(questions.map(q => q.grade).filter(Boolean))].sort(), [questions]);
+  const sources = useMemo(() => [...new Set(questions.map(q => q.source).filter(Boolean))].sort(), [questions]);
+  const examTypes = useMemo(() => [...new Set(questions.map(q => q.exam_type).filter(Boolean))].sort(), [questions]);
+  const knowledges = useMemo(() => [...new Set(questions.flatMap(q => q.knowledge).filter(Boolean))].sort(), [questions]);
+  const tags = useMemo(() => [...new Set(questions.flatMap(q => q.tags).filter(Boolean))].sort(), [questions]);
+
+  const qidOrder = useMemo(() => {
+    return qidInput
+      .split(/[\n, ]+/)
+      .filter(s => s.trim() !== '')
+      .map(s => Number(s.trim()))
+      .filter(n => !isNaN(n));
+  }, [qidInput]);
+
+  const qidSet = useMemo(() => new Set(qidOrder), [qidOrder]);
+
+  const toNum = (numStr: string) => parseInt(numStr.replace(/^[A-Za-z]+/, ''), 10);
+
+  const filtered = (() => {
+    const base = questions.filter(q => {
+      if (qidSet.size > 0 && !qidSet.has(q.qid)) return false;
+      if (grade && q.grade !== grade) return false;
+      if (source && q.source !== source) return false;
+      if (examType && q.exam_type !== examType) return false;
+      const num = toNum(q.number);
+      if (numberMin && num < Number(numberMin)) return false;
+      if (numberMax && num > Number(numberMax)) return false;
+      if (difficultyMin && q.difficulty < Number(difficultyMin)) return false;
+      if (difficultyMax && q.difficulty > Number(difficultyMax)) return false;
+      if (knowledge && !q.knowledge.includes(knowledge)) return false;
+      if (tag && !q.tags.includes(tag)) return false;
+      return true;
+    });
+    // 按输入框的 qid 顺序排列（优先级最高）
+    if (qidOrder.length > 0) {
+      const idx = new Map(qidOrder.map((id, i) => [id, i]));
+      base.sort((a, b) => {
+        const ai = idx.get(a.qid) ?? Infinity;
+        const bi = idx.get(b.qid) ?? Infinity;
+        return ai - bi;
+      });
+    } else {
+      // 用户选择的排序
+      const dir = sortOrder === 'asc' ? 1 : -1;
+      base.sort((a, b) => {
+        let va: string | number, vb: string | number;
+        switch (sortBy) {
+          case 'number':
+            va = toNum(a.number); vb = toNum(b.number); break;
+          case 'difficulty':
+            va = a.difficulty ?? 0; vb = b.difficulty ?? 0; break;
+          case 'type':
+            va = a.type || ''; vb = b.type || ''; break;
+          case 'source':
+          default:
+            va = a.source; vb = b.source; break;
+        }
+        if (va < vb) return -1 * dir;
+        if (va > vb) return 1 * dir;
+        return 0;
+      });
+    }
+    return base;
+  })();
+
+  // 筛选条件变化时回到第一页
+  useEffect(() => {
+    setPage(1);
+  }, [grade, source, numberMin, numberMax, examType, difficultyMin, difficultyMax, knowledge, tag, qidInput, viewMode]);
+
+  const pageSize = viewMode === 'browse' ? BROWSE_PAGE_SIZE : PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  const clearAll = () => {
+    setGrade(''); setSource(''); setNumberMin(''); setNumberMax('');
+    setExamType(''); setDifficultyMin(''); setDifficultyMax('');
+    setKnowledge(''); setTag(''); setQidInput('');
+    setSelectedQids(new Set());
+  };
+
+  const handoutQuestions = selectedQids.size > 0
+    ? filtered.filter(q => selectedQids.has(q.qid))
+    : filtered;
+
+  /** 加载缺失的正文内容，取回后合并到缓存 */
+  const fetchMissing = async (qids: number[]): Promise<Record<number, Record<string, string>>> => {
+    const needed = [...new Set(qids.filter(qid => !loadedContents[qid]))];
+    if (needed.length === 0) return loadedContents;
+
+    const results = await Promise.all(needed.map(async (qid) => {
+      try {
+        const res = await fetch(`/api/questions/${qid}`);
+        if (res.ok) {
+          return { qid, sections: (await res.json()).sections as Record<string, string> };
+        }
+      } catch { /* ignore */ }
+      return { qid, sections: null as null | Record<string, string> };
+    }));
+
+    const fresh: Record<number, Record<string, string>> = {};
+    for (const r of results) {
+      if (r.sections) fresh[r.qid] = r.sections;
+    }
+
+    setLoadedContents(prev => ({ ...prev, ...fresh }));
+    return { ...loadedContents, ...fresh };
+  };
+
+  /** 构建讲义 + 收集图片映射（原始 hash 名 → 新编号名） */
+  const buildHandoutWithImages = async (): Promise<{ markdown: string; imageMap: Map<string, string> }> => {
+    const allContents = await fetchMissing(handoutQuestions.map(q => q.qid));
+    const imageMap = new Map<string, string>();
+
+    /**
+     * 把文本中的图片引用统一转换为 ![](zip内文件名)
+     * 支持两种格式：
+     *   1. Obsidian: ![[images/hash.jpg|342]]
+     *   2. Markdown: ![](images/hash.jpg)  或  ![alt](images/hash.jpg)
+     */
+    const convertImages = (text: string, questionNum: number, counter: Map<number, number>): string => {
+      // 辅助函数：把哈希文件名映射为 zip 内的新文件名，去重
+      const mapImage = (hashFilename: string): string => {
+        if (imageMap.has(hashFilename)) {
+          return `![](${imageMap.get(hashFilename)})`;
+        }
+        const ext = hashFilename.split('.').pop() || 'jpg';
+        const count = counter.get(questionNum) || 0;
+        const newCount = count + 1;
+        counter.set(questionNum, newCount);
+        const newName = `${questionNum}-${newCount}.${ext}`;
+        imageMap.set(hashFilename, newName);
+        return `![](${newName})`;
+      };
+
+      // 格式一：Obsidian ![[images/hash.jpg|342]]
+      text = text.replace(
+        /!\[\[images\/([^\]|]+)(?:\|\d+)?\]\]/g,
+        (_, hash: string) => mapImage(hash)
+      );
+
+      // 格式二：Markdown ![任意alt](images/hash.jpg) — 之前漏了这种！
+      text = text.replace(
+        /!\[[^\]]*\]\(images\/([^)]+)\)/g,
+        (_, hash: string) => mapImage(hash)
+      );
+
+      return text;
+    };
+
+    const md = handoutQuestions.map((q, i) => {
+      const s = allContents[q.qid];
+      const num = i + 1;
+      const imgCounter = new Map<number, number>();
+
+      if (!s?.['题目']) {
+        return `${num}. （内容加载失败）`;
+      }
+
+      let questionText = s['题目'];
+
+      const type = q.type || '';
+      const isMultiSelect = type === '多选题' || questionText.includes('[多选]');
+      const isSingleSelect = type === '单选题' || questionText.includes('[选]');
+      const isFillIn = type === '填空题' || questionText.includes('[填]');
+
+      const numberPrefix = isMultiSelect ? `${num}.(多选)` : `${num}.`;
+
+      questionText = questionText
+        .replace(/\[多选\]/g, '')
+        .replace(/\[选\]/g, '')
+        .replace(/\[填\]/g, '____')
+        .trim();
+
+      if ((isSingleSelect || isMultiSelect) && !questionText.endsWith('()')) {
+        questionText += '()';
+      }
+
+      questionText = convertImages(questionText, num, imgCounter);
+
+      const lines: string[] = [];
+      lines.push(`${numberPrefix} ${questionText}`);
+
+      // 选项
+      if ((isSingleSelect || isMultiSelect) && s['选项']) {
+        lines.push(convertImages(s['选项'], num, imgCounter));
+      }
+
+      // 【答案】
+      if (s['答案']) {
+        lines.push(`【答案】${convertImages(s['答案'], num, imgCounter)}`);
+      }
+
+      // 【来源】
+      lines.push(`【来源】${q.source}${q.number}`);
+
+      // 【备注】
+      if (s['我的备注']) {
+        lines.push(`【备注】${convertImages(s['我的备注'], num, imgCounter)}`);
+      }
+
+      // 【AI备注】
+      const aiNote = s['AI 备注'] || s['AI备注'];
+      if (aiNote) {
+        lines.push(`【AI备注】${convertImages(aiNote, num, imgCounter)}`);
+      }
+
+      // 【解析】
+      if (s['解析']) {
+        lines.push(`【解析】${convertImages(s['解析'], num, imgCounter)}`);
+      }
+
+      return lines.join('\n');
+    }).join('\n\n\n');
+
+    return { markdown: md, imageMap };
+  };
+
+  /** 复制为纯文本 Markdown（图片保持 Obsidian 语法，不处理） */
+  const copyAsMarkdown = async () => {
+    const { markdown } = await buildHandoutWithImages();
+    // 还原回 Obsidian 格式（复制时用原始格式）
+    await navigator.clipboard.writeText(markdown);
+    alert(`已复制 ${handoutQuestions.length} 道题目（含完整题干）到剪贴板`);
+  };
+
+  /** 打包下载 zip（讲义 .md + 图片） */
+  const downloadZip = async () => {
+    const { markdown, imageMap } = await buildHandoutWithImages();
+
+    const zip = new JSZip();
+
+    // 添加讲义
+    zip.file('讲义.md', markdown);
+
+    // 批量获取图片
+    const downloadPromises: Promise<void>[] = [];
+    imageMap.forEach((newName, hashFilename) => {
+      downloadPromises.push(
+        fetch(`/api/images/${encodeURIComponent(hashFilename)}`)
+          .then(async (res) => {
+            if (res.ok) {
+              const blob = await res.blob();
+              zip.file(newName, blob);
+            } else {
+              console.warn(`图片缺失: ${hashFilename}`);
+            }
+          })
+          .catch(() => console.warn(`图片加载失败: ${hashFilename}`))
+      );
+    });
+
+    await Promise.all(downloadPromises);
+
+    // 生成时间戳文件名（精确到秒）
+    const now = new Date();
+    const ts = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+      '_',
+      String(now.getHours()).padStart(2, '0'),
+      String(now.getMinutes()).padStart(2, '0'),
+      String(now.getSeconds()).padStart(2, '0'),
+    ].join('');
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `讲义_Markdown_${ts}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /** 一键导出到本地 LATEX 目录 */
+  const exportToLocal = async () => {
+    const qids = handoutQuestions.map(q => q.qid);
+    try {
+      const res = await fetch('/api/export-latex', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qids }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        alert(`已导出 ${data.count} 道题目 → ${data.folder}`);
+      } else {
+        alert('导出失败：' + (data.error || '未知错误'));
+      }
+    } catch (e: any) {
+      alert('导出失败：' + e.message);
+    }
+  };
+
+  /** 复制为 LaTeX 代码 */
+  const copyAsLatex = async () => {
+    const allContents = await fetchMissing(handoutQuestions.map(q => q.qid));
+    const { tex } = buildLatexHandout(handoutQuestions, allContents);
+    await navigator.clipboard.writeText(tex);
+    alert(`已复制 ${handoutQuestions.length} 道题目的 LaTeX 代码到剪贴板`);
+  };
+
+  /** 打包下载 LaTeX zip（.tex + .sty + 图片） */
+  const downloadLatexZip = async () => {
+    const allContents = await fetchMissing(handoutQuestions.map(q => q.qid));
+    const { tex, imageMap } = buildLatexHandout(handoutQuestions, allContents);
+    const zip = new JSZip();
+
+    // 添加 .tex 文件
+    zip.file('讲义.tex', tex);
+
+    // 添加 .sty 样式文件
+    try {
+      const styRes = await fetch('/mathatlas.sty');
+      if (styRes.ok) {
+        const styText = await styRes.text();
+        zip.file('mathatlas.sty', styText);
+      }
+    } catch { /* .sty 获取失败不影响导出 */ }
+
+    // 批量获取图片（放入 images/ 子目录）
+    const downloadPromises: Promise<void>[] = [];
+    imageMap.forEach((newName, hashFilename) => {
+      downloadPromises.push(
+        fetch(`/api/images/${encodeURIComponent(hashFilename)}`)
+          .then(async (res) => {
+            if (res.ok) {
+              const blob = await res.blob();
+              zip.file(`images/${newName}`, blob);
+            } else {
+              console.warn(`图片缺失: ${hashFilename}`);
+            }
+          })
+          .catch(() => console.warn(`图片加载失败: ${hashFilename}`))
+      );
+    });
+
+    await Promise.all(downloadPromises);
+
+    // 生成时间戳文件名（精确到秒）
+    const now = new Date();
+    const ts = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+      '_',
+      String(now.getHours()).padStart(2, '0'),
+      String(now.getMinutes()).padStart(2, '0'),
+      String(now.getSeconds()).padStart(2, '0'),
+    ].join('');
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `讲义_LaTeX_${ts}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const toggleSelect = (qid: number) => {
+    setSelectedQids(prev => {
+      const next = new Set(prev);
+      if (next.has(qid)) next.delete(qid); else next.add(qid);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedQids.size === filtered.length) {
+      setSelectedQids(new Set());
+    } else {
+      setSelectedQids(new Set(filtered.map(q => q.qid)));
+    }
+  };
+
+  const handleRowClick = async (qid: number) => {
+    if (expandedQid === qid) {
+      setExpandedQid(null);
+    } else {
+      setExpandedQid(qid);
+      setShowAnswer(false);
+      setShowSolution(false);
+      if (!loadedContents[qid]) {
+        setLoadingQid(qid);
+        await fetchMissing([qid]);
+        setLoadingQid(null);
+      }
+    }
+  };
+
+  // 生成页码列表（带省略号）
+  const pageNumbers = useMemo(() => {
+    const pages: (number | '...')[] = [];
+    const delta = 2; // 当前页两侧各显示几个页码
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= safePage - delta && i <= safePage + delta)) {
+        pages.push(i);
+      } else if (pages[pages.length - 1] !== '...') {
+        pages.push('...');
+      }
+    }
+    return pages;
+  }, [totalPages, safePage]);
+
+  return (
+    <div className={styles.container}>
+      {/* 手动输入 qid */}
+      <div className={styles.qidArea}>
+        <label className={styles.qidLabel}>
+          手动输入 qid
+          <br />
+          <textarea
+            rows={3}
+            className={styles.qidTextarea}
+            placeholder="粘贴 qid，每行一个，或空格/逗号分隔&#10;例如：&#10;1780921807044&#10;1780921807045&#10;1780921807046"
+            value={qidInput}
+            onChange={e => setQidInput(e.target.value)}
+          />
+        </label>
+      </div>
+
+      {/* 筛选栏 */}
+      <div className={styles.filterBar}>
+        <label className={styles.filterLabel}>
+          年级
+          <select className={styles.filterSelect} value={grade} onChange={e => setGrade(e.target.value)}>
+            <option value="">全部</option>
+            {grades.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+        </label>
+
+        <label className={styles.filterLabel}>
+          类别
+          <select className={styles.filterSelect} value={examType} onChange={e => setExamType(e.target.value)}>
+            <option value="">全部</option>
+            {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+
+        <label className={styles.filterLabel}>
+          来源
+          <select className={styles.filterSelect} value={source} onChange={e => setSource(e.target.value)}>
+            <option value="">全部</option>
+            {sources.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </label>
+
+        <label className={styles.filterLabel}>
+          题号范围
+          <span className={styles.rangeGroup}>
+            <input className={styles.filterInput} type="number" placeholder="最小" value={numberMin} onChange={e => setNumberMin(e.target.value)} min={1} step={1} />
+            ~
+            <input className={styles.filterInput} type="number" placeholder="最大" value={numberMax} onChange={e => setNumberMax(e.target.value)} min={1} step={1} />
+          </span>
+        </label>
+
+        <label className={styles.filterLabel}>
+          难度范围
+          <span className={styles.rangeGroup}>
+            <input className={styles.filterInput} type="number" placeholder="最小" value={difficultyMin} onChange={e => setDifficultyMin(e.target.value)} min={0} max={1} step={0.1} />
+            ~
+            <input className={styles.filterInput} type="number" placeholder="最大" value={difficultyMax} onChange={e => setDifficultyMax(e.target.value)} min={0} max={1} step={0.1} />
+          </span>
+        </label>
+
+        <label className={styles.filterLabel}>
+          知识点
+          <select className={styles.filterSelect} value={knowledge} onChange={e => setKnowledge(e.target.value)}>
+            <option value="">全部</option>
+            {knowledges.map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </label>
+
+        <label className={styles.filterLabel}>
+          标签
+          <select className={styles.filterSelect} value={tag} onChange={e => setTag(e.target.value)}>
+            <option value="">全部</option>
+            {tags.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+
+        <label className={styles.filterLabel}>
+          排序
+          <span className={styles.rangeGroup}>
+            <select className={styles.filterSelect} value={sortBy} onChange={e => { setSortBy(e.target.value as any); setPage(1); }}>
+              <option value="source">来源</option>
+              <option value="number">题号</option>
+              <option value="difficulty">难度</option>
+              <option value="type">题型</option>
+            </select>
+            <button
+              className={styles.sortToggle}
+              onClick={() => { setSortOrder(o => o === 'asc' ? 'desc' : 'asc'); setPage(1); }}
+              title={sortOrder === 'asc' ? '升序 → 降序' : '降序 → 升序'}
+            >
+              {sortOrder === 'asc' ? '↑' : '↓'}
+            </button>
+          </span>
+        </label>
+
+        <button className={styles.btnClear} onClick={clearAll}>清除筛选</button>
+      </div>
+
+      {/* 视图切换 */}
+      <div className={styles.viewTabs}>
+        <button
+          className={`${styles.viewTab} ${viewMode === 'table' ? styles.viewTabActive : ''}`}
+          onClick={() => setViewMode('table')}
+        >
+          📋 表格
+        </button>
+        <button
+          className={`${styles.viewTab} ${viewMode === 'browse' ? styles.viewTabActive : ''}`}
+          onClick={() => setViewMode('browse')}
+        >
+          📖 浏览
+        </button>
+      </div>
+
+      <div className={styles.toolbar}>
+        <span className={styles.resultCount}>
+          筛选结果：{filtered.length} 道题目
+          {selectedQids.size > 0 && ` · 已勾选 ${selectedQids.size} 道`}
+        </span>
+        {filtered.length > 0 && (
+          <>
+            <button className={styles.btnAction} onClick={copyAsMarkdown}>复制为 Markdown</button>
+            <button className={styles.btnAction} onClick={downloadZip}>打包下载 Markdown (.zip)</button>
+            <button className={styles.btnAction} onClick={copyAsLatex}>复制为 LaTeX</button>
+            <button className={styles.btnAction} onClick={downloadLatexZip}>打包下载 LaTeX (.zip)</button>
+            <button className={styles.btnAction} onClick={exportToLocal}>LaTeX 导出到本地</button>
+          </>
+        )}
+      </div>
+
+      {viewMode === 'browse' ? (
+        <BrowseView
+          questions={paginated}
+          loadedContents={loadedContents}
+          selectedQids={selectedQids}
+          loadingQid={loadingQid}
+          onToggleSelect={toggleSelect}
+          onLoadContent={(qid) => {
+            if (!loadedContents[qid]) {
+              setLoadingQid(qid);
+              fetchMissing([qid]).then(() => setLoadingQid(null));
+            }
+          }}
+          onRefresh={(qid) => {
+            setLoadedContents(prev => {
+              const next = { ...prev };
+              delete next[qid];
+              return next;
+            });
+            setLoadingQid(qid);
+            fetchMissing([qid]).then(() => setLoadingQid(null));
+          }}
+        />
+      ) : (
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th style={{ width: 36 }}>
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && selectedQids.size === filtered.length}
+                onChange={toggleSelectAll}
+              />
+            </th>
+            <th>qid</th>
+            <th>来源</th>
+            <th>题号</th>
+            <th>题型</th>
+            <th>年级</th>
+            <th>类别</th>
+            <th>难度</th>
+            <th>知识点</th>
+            <th>标签</th>
+          </tr>
+        </thead>
+        <tbody>
+          {paginated.map(q => {
+            const isExpanded = expandedQid === q.qid;
+            const s = loadedContents[q.qid];
+            const isLoading = loadingQid === q.qid;
+            return (
+              <Fragment key={q.qid}>
+                <tr
+                  className={isExpanded ? styles.expandedRow : undefined}
+                  onClick={() => handleRowClick(q.qid)}
+                >
+                  <td onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedQids.has(q.qid)}
+                      onChange={() => toggleSelect(q.qid)}
+                    />
+                  </td>
+                  <td>{q.qid}</td>
+                  <td>{q.source}</td>
+                  <td>{q.number}</td>
+                  <td>{q.type}</td>
+                  <td>{q.grade}</td>
+                  <td>{q.exam_type}</td>
+                  <td>{q.difficulty}</td>
+                  <td>{q.knowledge.join('、')}</td>
+                  <td>{q.tags.join('、')}</td>
+                </tr>
+                {isExpanded && (
+                  <tr key={`${q.qid}-detail`}>
+                    <td colSpan={12} style={{ padding: '1.5rem', border: 'none' }}>
+                      <div className={styles.detail} style={{ marginTop: 0 }}>
+                        <div className={styles.detailMeta}>
+                          <strong>{q.source}</strong> · {q.number} · {q.type} · {q.grade} · {q.exam_type} · 难度 {q.difficulty}
+                          {' · '}
+                          <a
+                            href={`obsidian://open?vault=${encodeURIComponent((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学')}&file=${encodeURIComponent(q.filePath.replace((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault') + '\\', '').replace(/\\/g, '/'))}`}
+                            style={{ color: 'var(--accent)', textDecoration: 'none' }}
+                            title="在 Obsidian 中打开"
+                          >
+                            Obsidian
+                          </a>
+                        </div>
+
+                        {isLoading && (
+                          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                            加载中...
+                          </div>
+                        )}
+
+                        {s && (
+                          <>
+                            {s['题目'] && (
+                              <div className={styles.detailSection}>
+                                <h3>题目</h3>
+                                <MathText text={s['题目']} />
+                              </div>
+                            )}
+
+                            {s['选项'] && (
+                              <div className={styles.detailSection}>
+                                <h3>选项</h3>
+                                <MathText text={s['选项']} />
+                              </div>
+                            )}
+
+                            {s['我的备注'] && (
+                              <div className={`${styles.detailNote} ${styles.detailNoteMine}`}>
+                                <h3>我的备注</h3>
+                                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, color: 'var(--text)' }}>{s['我的备注']}</pre>
+                              </div>
+                            )}
+
+                            {(s['AI 备注'] || s['AI备注']) && (
+                              <div className={`${styles.detailNote} ${styles.detailNoteAI}`}>
+                                <h3>AI 备注</h3>
+                                <MathText text={s['AI 备注'] || s['AI备注']} />
+                              </div>
+                            )}
+
+                            {s['答案'] && (
+                              <div className={styles.detailSection}>
+                                <h3 className={styles.detailFold} onClick={() => setShowAnswer(!showAnswer)}>
+                                  {showAnswer ? '▼' : '▶'} 答案
+                                </h3>
+                                {showAnswer && <MathText text={s['答案']} />}
+                              </div>
+                            )}
+
+                            {s['解析'] && (
+                              <div className={styles.detailSection}>
+                                <h3 className={styles.detailFold} onClick={() => setShowSolution(!showSolution)}>
+                                  {showSolution ? '▼' : '▶'} 解析
+                                </h3>
+                                {showSolution && <MathText text={s['解析']} />}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+      )}
+
+      {/* 分页控件 */}
+      {totalPages > 1 && (
+        <div className={styles.pagination}>
+          <button
+            className={styles.pageBtn}
+            disabled={safePage <= 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+          >
+            上一页
+          </button>
+
+          {pageNumbers.map((p, i) =>
+            p === '...' ? (
+              <span key={`ellipsis-${i}`} className={styles.pageEllipsis}>…</span>
+            ) : (
+              <button
+                key={p}
+                className={`${styles.pageBtn} ${p === safePage ? styles.pageActive : ''}`}
+                onClick={() => setPage(p)}
+              >
+                {p}
+              </button>
+            )
+          )}
+
+          <button
+            className={styles.pageBtn}
+            disabled={safePage >= totalPages}
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          >
+            下一页
+          </button>
+
+          <span className={styles.pageInfo}>
+            第 {safePage}/{totalPages} 页
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}

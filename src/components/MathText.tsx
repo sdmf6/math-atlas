@@ -3,7 +3,31 @@ import { marked } from 'marked';
 
 /** 把图片引用替换为正确的 API 路径 */
 function replaceImages(text: string): string {
-  // Obsidian 格式 ![[images/xxx|NNN]]
+  // 1. 处理简写图片 ![alt](hash.jpg) 自动补全 images/ 前缀（修复赋值+参数顺序）
+  text = text.replace(/!\[([^\]]*?)\]\(([^)]+)\)/g, (match, alt, filename) => {
+    // 自动补全images目录
+    const fileHash = filename.startsWith('images/') ? filename.split('/')[1] : filename;
+    const widthNum = parseInt(alt, 10);
+    let style = 'max-width:100%;display:block;margin:0.5rem 0;';
+    if (!isNaN(widthNum) && widthNum > 0) {
+      style = `width:${widthNum}px;display:block;margin:0.5rem 0;`;
+    }
+    return `<img src="/api/images/${encodeURIComponent(fileHash)}" alt="${alt}" style="${style}" />`;
+  });
+
+  // 2. 标准格式 ![alt](images/hash.jpg)
+  text = text.replace(
+    /!\[([^\]]*)\]\(images\/([^)]+)\)/g,
+    (_, alt: string, filename: string) => {
+      const width = parseInt(alt, 10);
+      const style = (!isNaN(width) && width > 0)
+        ? `width:${width}px;display:block;margin:0.5rem 0;`
+        : 'max-width:100%;display:block;margin:0.5rem 0;';
+      return `<img src="/api/images/${encodeURIComponent(filename)}" alt="${alt}" style="${style}" />`;
+    }
+  );
+
+  // 3. 兼容Obsidian内嵌图片 ![[images/hash.jpg|宽度]]
   text = text.replace(
     /!\[\[images\/([^\]|]+)(?:\|(\d+))?\]\]/g,
     (_, filename: string, width?: string) => {
@@ -11,17 +35,7 @@ function replaceImages(text: string): string {
       return `<img src="/api/images/${encodeURIComponent(filename)}" alt="${filename}" style="${widthStyle}display:block;margin:0.5rem 0;" />`;
     }
   );
-  // 标准 Markdown 格式 ![...](images/xxx.jpg) → 替换为 API 路径（alt 可能为宽度数字）
-  text = text.replace(
-    /!\[([^\]]*)\]\(images\/([^)]+)\)/g,
-    (_, alt: string, filename: string) => {
-      const width = parseInt(alt, 10);
-      if (!isNaN(width) && width > 0) {
-        return `<img src="/api/images/${encodeURIComponent(filename)}" alt="" style="width:${width}px;display:block;margin:0.5rem 0;" />`;
-      }
-      return `<img src="/api/images/${encodeURIComponent(filename)}" alt="${alt}" style="max-width:100%;display:block;margin:0.5rem 0;" />`;
-    }
-  );
+
   return text;
 }
 
@@ -36,7 +50,7 @@ interface MathSlot {
 
 /** 渲染含图片、Markdown、数学公式的文本 */
 function renderContent(text: string): string {
-  // 1. 替换图片
+  // 1. 替换所有图片路径
   text = replaceImages(text);
 
   // 2. 保护已转义的 \$
@@ -44,7 +58,6 @@ function renderContent(text: string): string {
 
   // 3. 提取所有 $ 公式块，换成占位符（避免 marked 破坏公式）
   const mathSlots: MathSlot[] = [];
-  // 先匹配 $$...$$，再匹配 $...$
   const mathRegex = /(\$\$([\s\S]*?)\$\$|\$([\s\S]*?)\$)/;
   let idx = 0;
   while (true) {

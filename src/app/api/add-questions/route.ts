@@ -3,10 +3,10 @@ import fs from 'fs';
 import path from 'path';
 import { invalidateMetaCache } from '@/lib/questions';
 import matter from 'gray-matter';
-
+export const dynamic = 'force-dynamic';
 const VAULT_PATH = process.env.VAULT_PATH || './demo-vault';
 const BANK_PATH = path.join(VAULT_PATH, '题库');
-
+import { serverEnv } from '@/lib/env';
 interface QuestionInput {
   content: string;
   source: string;
@@ -18,6 +18,34 @@ interface QuestionInput {
   difficulty?: number | null;
   knowledge?: string[];
   tags?: string[];
+}
+
+/**
+ * 入库自动标准化图片语法
+ * 1. Obsidian ![[images/xxx|宽度]] → ![宽度](images/xxx.jpg)
+ * 2. 无宽度Obsidian图 ![[images/xxx]] → 默认400宽 ![400](images/xxx.jpg)
+ * 3. 简写图片 ![任意文字](xxx.jpg) → ![400](images/xxx.jpg)
+ * 原有标准格式 ![数字](images/xxx.jpg) 完全保留不改动
+ */
+function normalizeImageSyntax(text: string): string {
+  if (!text) return text;
+
+  // 1. 处理带宽度的Obsidian内嵌图
+  text = text.replace(/!\[\[images\/([^\]|]+)\|(\d+)\]\]/g, (_, hash, width) => {
+    return `![${width}](images/${hash})`;
+  });
+
+  // 2. 无宽度Obsidian内嵌图，默认宽度400
+  text = text.replace(/!\[\[images\/([^\]]+)\]\]/g, (_, hash) => {
+    return `![400](images/${hash})`;
+  });
+
+  // 3. 简写图片：![xxx](哈希.jpg) 自动补images目录+默认400宽度
+  text = text.replace(/!\[[^\]]*\]\((?!images\/)([^)]+\.(jpg|png|jpeg|webp))\)/g, (_, hash) => {
+    return `![400](images/${hash})`;
+  });
+
+  return text;
 }
 
 /**
@@ -97,7 +125,7 @@ export async function POST(req: NextRequest) {
       // 组装 YAML
       const yaml: Record<string, any> = {
         qid,
-        grade: q.grade || '高中',
+        grade: q.grade || serverEnv.defaultGrade,
         source: q.source,
         number: q.number,
         type: q.type,
@@ -119,6 +147,10 @@ export async function POST(req: NextRequest) {
           cleanContent = cleanContent.slice(endIdx + 5).trim();
         }
       }
+
+      // ========== 新增图片自动转换核心代码 ==========
+      cleanContent = normalizeImageSyntax(cleanContent);
+      // ==============================================
 
       const frontmatter = matter.stringify(cleanContent, yaml);
 

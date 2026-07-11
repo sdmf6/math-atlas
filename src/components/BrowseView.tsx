@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { QuestionMetaLight } from '@/lib/questions';
 import MathText from '@/components/MathText';
 import styles from './BrowseView.module.css';
-
+import { clientEnv } from '@/lib/env';
 interface BrowseViewProps {
   questions: QuestionMetaLight[];
   loadedContents: Record<number, Record<string, string>>;
@@ -38,6 +38,28 @@ export default function BrowseView({
     }
   }, [questions, loadedContents, onLoadContent]);
 
+  // 新增一个 ref，用于记录正在“强制刷新”的 qid，防止重复请求
+  const refreshingRef = useRef<Set<number>>(new Set());
+
+  // 响应 loadingQid 变化：如果内容缺失，则强制加载（无视 loadedRef）
+  useEffect(() => {
+    if (loadingQid === null) return;
+    const qid = loadingQid;
+    // 若内容缺失且尚未在刷新中，则触发加载
+    if (!loadedContents[qid] && !refreshingRef.current.has(qid)) {
+      refreshingRef.current.add(qid);
+      onLoadContent(qid);  // 调用父组件的加载函数
+    }
+  }, [loadingQid, loadedContents, onLoadContent]);
+
+  // 当内容加载完成后，从刷新队列中移除该 qid
+  useEffect(() => {
+    for (const qid of refreshingRef.current) {
+      if (loadedContents[qid]) {
+        refreshingRef.current.delete(qid);
+      }
+    }
+  }, [loadedContents]);
   const toggleAnswer = (qid: number) => {
     setShowAnswer(prev => ({ ...prev, [qid]: !prev[qid] }));
   };
@@ -90,9 +112,11 @@ export default function BrowseView({
                 {s?.['我的备注'] && (
                   <span className={styles.noteIndicator}>📌</span>
                 )}
+
+
                 <a
                   className={styles.obsidianLink}
-                  href={`obsidian://open?vault=${encodeURIComponent((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学')}&file=${encodeURIComponent(q.filePath.replace(/\\/g, '/').split(((process.env.NEXT_PUBLIC_VAULT_PATH || './demo-vault').split(/[\\\/]/).pop() || '高中数学') + '/').pop() || '')}`}
+                  href={`obsidian://open?vault=${encodeURIComponent(clientEnv.vaultPath.split(/[\\\/]/).pop() || clientEnv.defaultSubject)}&file=${encodeURIComponent(q.filePath.replace(/\\/g, '/').split((clientEnv.vaultPath.split(/[\\\/]/).pop() || clientEnv.defaultSubject) + '/').pop() || '')}`}
                   title="在 Obsidian 中打开"
                   onClick={e => e.stopPropagation()}
                 >
@@ -125,37 +149,43 @@ export default function BrowseView({
             </div>
 
             {/* 答案 */}
-            {s?.['答案'] && showAnswer[q.qid] && (
-              <div className={styles.foldSection}>
-                <div className={styles.foldLabel}>答案</div>
-                <div className={styles.foldBody}>
-                  <MathText text={s['答案']} />
+            {
+              s?.['答案'] && showAnswer[q.qid] && (
+                <div className={styles.foldSection}>
+                  <div className={styles.foldLabel}>答案</div>
+                  <div className={styles.foldBody}>
+                    <MathText text={s['答案']} />
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            }
 
             {/* 解析 */}
-            {s?.['解析'] && showSolution[q.qid] && (
-              <div className={styles.foldSection}>
-                <div className={styles.foldLabel}>解析</div>
-                <div className={styles.foldBody}>
-                  <MathText text={s['解析']} />
+            {
+              s?.['解析'] && showSolution[q.qid] && (
+                <div className={styles.foldSection}>
+                  <div className={styles.foldLabel}>解析</div>
+                  <div className={styles.foldBody}>
+                    <MathText text={s['解析']} />
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            }
 
             {/* 备注 */}
-            {s?.['我的备注'] && (
-              <div className={styles.foldSection}>
-                <div className={styles.foldLabel}>📌 我的备注</div>
-                <div className={styles.foldBody}>
-                  <MathText text={s['我的备注']} />
+            {
+              s?.['我的备注'] && (
+                <div className={styles.foldSection}>
+                  <div className={styles.foldLabel}>📌 我的备注</div>
+                  <div className={styles.foldBody}>
+                    <MathText text={s['我的备注']} />
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            }
           </div>
         );
       })}
-    </div>
+    </div >
   );
 }

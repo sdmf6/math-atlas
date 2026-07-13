@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
+import fsAsync from 'fs/promises';
+
 
 const VAULT_PATH = process.env.VAULT_PATH || './demo-vault';
 const BANK_PATH = path.join(VAULT_PATH, '题库');
@@ -225,4 +227,85 @@ export function getQuestionByQid(qid: number): QuestionMeta | null {
   }
 
   return null;
+}
+/**
+ * 根据qid读取【完整原始Markdown全文】（包含---YAML + 所有##章节，和手动粘贴格式完全一致）
+ * 异步，给/api/questions/batch接口使用
+ */
+export async function getFullQuestionMarkdownByQid(qid: number): Promise<string> {
+  const sourceDirs = await fsAsync.readdir(BANK_PATH);
+
+  for (const dirName of sourceDirs) {
+    const dirPath = path.join(BANK_PATH, dirName);
+    const stat = await fsAsync.stat(dirPath);
+    if (!stat.isDirectory()) continue;
+
+    const files = await fsAsync.readdir(dirPath);
+    for (const fileName of files) {
+      if (!fileName.endsWith('.md') || fileName.endsWith('.bak')) continue;
+      const filePath = path.join(dirPath, fileName);
+      const rawText = await fsAsync.readFile(filePath, 'utf8');
+      const parsed = matter(rawText);
+      const data = parsed.data;
+
+      if (data.qid === qid) {
+        return rawText;
+      }
+    }
+  }
+
+  return `---\nqid: ${qid}\n---\n## 题目\n【qid:${qid} 题目文件不存在】`;
+}
+
+/**
+ * 根据qid获取轻量元数据 QuestionMetaLight（异步版，适配接口）
+ */
+export async function getQuestionMeta(qid: number): Promise<QuestionMetaLight | null> {
+  const sourceDirs = await fsAsync.readdir(BANK_PATH);
+
+  for (const dirName of sourceDirs) {
+    const dirPath = path.join(BANK_PATH, dirName);
+    const stat = await fsAsync.stat(dirPath);
+    if (!stat.isDirectory()) continue;
+
+    const files = await fsAsync.readdir(dirPath);
+    for (const fileName of files) {
+      if (!fileName.endsWith('.md') || fileName.endsWith('.bak')) continue;
+      const filePath = path.join(dirPath, fileName);
+      const rawText = await fsAsync.readFile(filePath, 'utf8');
+      const parsed = matter(rawText);
+      const data = parsed.data;
+
+      if (data.qid === qid) {
+        const safeKnowledge = (Array.isArray(data.knowledge) ? data.knowledge : [data.knowledge])
+          .filter(Boolean)
+          .map((k: any) => (typeof k === 'string' ? k : String(k)));
+        const safeTags = (Array.isArray(data.tags) ? data.tags : [data.tags])
+          .filter(Boolean)
+          .map((t: any) => (typeof t === 'string' ? t : String(t)));
+        return {
+          qid: data.qid,
+          grade: data.grade || '',
+          source: data.source || '',
+          number: data.number || '',
+          type: data.type || '',
+          exam_type: data.exam_type || '',
+          filePath,
+          difficulty: data.difficulty ?? 0,
+          knowledge: safeKnowledge,
+          tags: safeTags,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 根据qid拆分所有章节sections（异步版，适配接口）
+ */
+export async function getQuestionSections(qid: number): Promise<Record<string, string>> {
+  const fullMd = await getFullQuestionMarkdownByQid(qid);
+  const parsed = matter(fullMd);
+  return parseSections(parsed.content);
 }

@@ -1,5 +1,6 @@
 'use client';
 import { Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType, HeadingLevel } from 'docx';
+import { useRouter } from 'next/navigation';
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import type { QuestionMetaLight } from '@/lib/questions';
 import JSZip from 'jszip';
@@ -30,12 +31,14 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
   const [showAnswer, setShowAnswer] = useState(false);
   const [showSolution, setShowSolution] = useState(false);
   const [selectedQids, setSelectedQids] = useState<Set<number>>(new Set());
+  // 新增：记录用户勾选的先后顺序
+  const [selectOrder, setSelectOrder] = useState<number[]>([]);
   const [loadedContents, setLoadedContents] = useState<Record<number, Record<string, string>>>({});
   const [loadingQid, setLoadingQid] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'browse'>('table');
   const [sortBy, setSortBy] = useState<'source' | 'number' | 'difficulty' | 'type'>('source');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-
+  const router = useRouter();
   const grades = useMemo(() => [...new Set(questions.map(q => q.grade).filter(Boolean))].sort(), [questions]);
   const sources = useMemo(() => [...new Set(questions.map(q => q.source).filter(Boolean))].sort(), [questions]);
   const examTypes = useMemo(() => [...new Set(questions.map(q => q.exam_type).filter(Boolean))].sort(), [questions]);
@@ -116,15 +119,31 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
     setExamType(''); setDifficultyMin(''); setDifficultyMax('');
     setKnowledge(''); setTag(''); setQidInput('');
     setSelectedQids(new Set());
+    setSelectOrder([]); // 清空勾选顺序
   };
 
-  // const handoutQuestions = selectedQids.size > 0
-  //   ? filtered.filter(q => selectedQids.has(q.qid))
-  //   : filtered;
-  // 修复：全局从原始questions取所有勾选题目，不受筛选条件变化影响
-  const handoutQuestions = selectedQids.size > 0
-    ? questions.filter(q => selectedQids.has(q.qid))
-    : filtered;
+  // ========== 修复：重写 handoutQuestions 排序逻辑 ==========
+  const handoutQuestions = useMemo(() => {
+    // 优先级1：手动输入qid列表，最高优先
+    if (qidOrder.length > 0) {
+      const idxMap = new Map(qidOrder.map((id, i) => [id, i]));
+      return questions
+        .filter(q => idxMap.has(q.qid))
+        .sort((a, b) => idxMap.get(a.qid)! - idxMap.get(b.qid)!);
+    }
+    // 优先级2：手动勾选题目，严格按照勾选先后顺序
+    if (selectedQids.size > 0) {
+      const selectedList = questions.filter(q => selectedQids.has(q.qid));
+      return [...selectedList].sort((a, b) => {
+        const indexA = selectOrder.indexOf(a.qid);
+        const indexB = selectOrder.indexOf(b.qid);
+        return indexA - indexB;
+      });
+    }
+    // 优先级3：无输入无勾选，使用筛选后的默认列表
+    return filtered;
+  }, [qidOrder, selectedQids, selectOrder, questions, filtered]);
+
   /** 加载缺失的正文内容，取回后合并到缓存 */
   const fetchMissing = async (qids: number[]): Promise<Record<number, Record<string, string>>> => {
     const needed = [...new Set(qids.filter(qid => !loadedContents[qid]))];
@@ -523,6 +542,71 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
     URL.revokeObjectURL(url);
   };
 
+  /** 将勾选的题目加入试题栏 */
+  const addToQuestionBar = async () => {
+    // 改为检查 selectedQids 是否有值
+    if (selectedQids.size === 0) {
+      alert('请先勾选题目');
+      return;
+    }
+
+    // 获取所有勾选题目的完整内容
+    const allContents = await fetchMissing(handoutQuestions.map(q => q.qid));
+
+    // 组装成 AddPage 能识别的格式（与粘贴板格式一致）
+    const blocks: string[] = [];
+
+    for (const q of handoutQuestions) {
+      const s = allContents[q.qid];
+      if (!s) continue;
+
+      // 构建 YAML frontmatter
+      const yamlLines = [
+        '---',
+        `qid: ${q.qid}`,
+        `grade: ${q.grade || ''}`,
+        `source: ${q.source || ''}`,
+        `number: ${q.number || ''}`,
+        `type: ${q.type || ''}`,
+        `difficulty: ${q.difficulty ?? ''}`,
+        `semester: ${q.semester || ''}`,
+        `exam_type: ${q.exam_type || ''}`,
+        `knowledge: [${(q.knowledge || []).join(', ')}]`,
+        `ai_tags: []`,
+        `tags: [${(q.tags || []).join(', ')}]`,
+        `status: 待入库`,
+        `selected: false`,
+        '---',
+      ].join('\n');
+
+      // 构建题目内容
+      const sections = [
+        `## 题目`,
+        (s['题目'] || '').trim(),
+        '',
+        s['选项'] ? `## 选项\n${s['选项'].trim()}` : '',
+        '',
+        `## 备注`,
+        `### 我的备注`,
+        s['我的备注'] || '',
+        `### AI备注`,
+        s['AI备注'] || s['AI 备注'] || '',
+        '',
+        `## 答案`,
+        s['答案'] || '',
+        '',
+        s['解析'] ? `## 解析\n${s['解析'].trim()}` : '',
+      ].join('\n');
+
+      blocks.push(`${yamlLines}\n${sections}`);
+    }
+
+    // 存入 localStorage
+    localStorage.setItem('questionBarData', blocks.join('\n\n==========\n\n'));
+
+    // 跳转到添加页面
+    router.push('/examBasket');
+  };
   /** 一键导出到本地 LATEX 目录 */
   const exportToLocal = async () => {
     const qids = handoutQuestions.map(q => q.qid);
@@ -609,19 +693,32 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
     URL.revokeObjectURL(url);
   };
 
+  // ========== 修复：同步维护勾选顺序数组 ==========
   const toggleSelect = (qid: number) => {
     setSelectedQids(prev => {
       const next = new Set(prev);
-      if (next.has(qid)) next.delete(qid); else next.add(qid);
+      if (next.has(qid)) {
+        // 取消勾选，从顺序数组移除
+        next.delete(qid);
+        setSelectOrder(order => order.filter(id => id !== qid));
+      } else {
+        // 新增勾选，追加到顺序末尾
+        next.add(qid);
+        setSelectOrder(order => [...order, qid]);
+      }
       return next;
     });
   };
 
+  // ========== 修复：全选同步写入顺序 ==========
   const toggleSelectAll = () => {
     if (selectedQids.size === filtered.length) {
       setSelectedQids(new Set());
+      setSelectOrder([]);
     } else {
-      setSelectedQids(new Set(filtered.map(q => q.qid)));
+      const allQids = filtered.map(q => q.qid);
+      setSelectedQids(new Set(allQids));
+      setSelectOrder(allQids);
     }
   };
 
@@ -689,13 +786,6 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
           </select>
         </label>
 
-        {/* <label className={styles.filterLabel}>
-          来源
-          <select className={styles.filterSelect} value={source} onChange={e => setSource(e.target.value)}>
-            <option value="">全部</option>
-            {sources.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </label> */}
         {/* 改造后的“来源”标签 (从 select 改成 联想输入) */}
         <label
           className={styles.filterLabel}
@@ -789,13 +879,6 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
           </span>
         </label>
 
-        {/* <label className={styles.filterLabel}>
-          知识点
-          <select className={styles.filterSelect} value={knowledge} onChange={e => setKnowledge(e.target.value)}>
-            <option value="">全部</option>
-            {knowledges.map(k => <option key={k} value={k}>{k}</option>)}
-          </select>
-        </label> */}
         {/* 👇 新增：强制换行 */}
         <div style={{ flexBasis: '100%', width: 0, height: 0 }} />
         {/* 改造后的“知识点”标签 (调整了文字大小和颜色，满足又黑又大) */}
@@ -929,6 +1012,11 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
             <button className={styles.btnAction} onClick={downloadLatexZip}>打包下载 LaTeX (.zip)</button>
             <button className={styles.btnAction} onClick={exportToLocal}>LaTeX 导出到本地</button>
             <button className={styles.btnAction} onClick={downloadWord}>打包下载 Word (.docx)</button>
+
+            <button className={styles.btnAction} onClick={addToQuestionBar}>
+              📋 加入试题栏
+            </button>
+
           </>
         )}
       </div>

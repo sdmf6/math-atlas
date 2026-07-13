@@ -39,6 +39,7 @@ function parseOneQuestion(trimmed: string): { yaml: Record<string, any>; body: s
           yaml[key] = val;
         }
       });
+
     }
   } catch { /* 解析失败就忽略 */ }
 
@@ -60,7 +61,7 @@ function parseOneQuestion(trimmed: string): { yaml: Record<string, any>; body: s
       sections[title] = content;
     }
   }
-
+  console.log('解析结果:', { yaml, body, sections });
   return { yaml, body, sections };
 }
 

@@ -1,3 +1,5 @@
+:
+
 # MathAtlas
 
 一个轻量的高中数学题库浏览与讲义导出工具。基于 Next.js，以 Obsidian Vault 作为数据源。
@@ -30,7 +32,6 @@ npm run dev
 ```
 
 3. 浏览器打开 **http://localhost:3000**
-
 4. 想用「在 Obsidian 中打开」跳转功能的话，用 Obsidian 打开 `demo-vault` 文件夹作为 Vault 即可
 
 项目自带两套示例试卷（2025 全国一卷、二卷），不配置也能直接体验。

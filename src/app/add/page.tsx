@@ -1,8 +1,10 @@
 'use client';
-
+import { useRouter } from 'next/navigation';
 import { useState, useMemo, useRef, useCallback } from 'react';
 import MathText from '@/components/MathText';
 import styles from './page.module.css';
+// 导入统一环境变量配置
+import { clientEnv } from '@/lib/env';
 
 /**
  * 解析后的题目结构
@@ -37,6 +39,7 @@ function parseOneQuestion(trimmed: string): { yaml: Record<string, any>; body: s
           yaml[key] = val;
         }
       });
+
     }
   } catch { /* 解析失败就忽略 */ }
 
@@ -58,7 +61,7 @@ function parseOneQuestion(trimmed: string): { yaml: Record<string, any>; body: s
       sections[title] = content;
     }
   }
-
+  console.log('解析结果:', { yaml, body, sections });
   return { yaml, body, sections };
 }
 
@@ -99,7 +102,11 @@ export default function AddPage() {
   const [source, setSource] = useState('');
   const [examType, setExamType] = useState('');
   const [defaultType, setDefaultType] = useState('');
-  const [defaultGrade, setDefaultGrade] = useState('高中');
+  const router = useRouter();
+
+  // ========== 核心修改：默认年级从环境变量读取 ==========
+  const [defaultGrade, setDefaultGrade] = useState(clientEnv.defaultGrade);
+
   const [defaultSemester, setDefaultSemester] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -112,6 +119,63 @@ export default function AddPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]); // 每张卡片的 DOM 引用，用于自动滚动
+
+  // ====================== 新增：年级联动配置 ======================
+  // 学期下拉选项映射
+  const semesterOptionsMap: Record<string, { value: string; label: string }[]> = {
+    "初中": [
+      { value: "七上", label: "七上" },
+      { value: "七下", label: "七下" },
+      { value: "八上", label: "八上" },
+      { value: "八下", label: "八下" },
+      { value: "九上", label: "九上" },
+      { value: "九下", label: "九下" },
+    ],
+    "高中": [
+      { value: "高一上", label: "高一上" },
+      { value: "高一下", label: "高一下" },
+      { value: "高二上", label: "高二上" },
+      { value: "高二下", label: "高二下" },
+      { value: "高三上", label: "高三上" },
+      { value: "高三下", label: "高三下" },
+    ]
+  };
+  // 类别下拉选项映射
+  const examTypeOptionsMap: Record<string, { value: string; label: string }[]> = {
+    "初中": [
+      { value: "中考真题", label: "中考真题" },
+      { value: "月考", label: "月考" },
+      { value: "期中考试", label: "期中考试" },
+      { value: "期末考试", label: "期末考试" },
+      { value: "模拟题", label: "模拟题" },
+      // { value: "练习题", label: "练习题" },
+    ],
+    "高中": [
+      { value: "高考真题", label: "高考真题" },
+      { value: "月考", label: "月考" },
+      { value: "期中考试", label: "期中考试" },
+      { value: "期末考试", label: "期末考试" },
+      { value: "模拟题", label: "模拟题" },
+      // { value: "练习题", label: "练习题" },
+    ]
+  };
+
+  // 根据当前年级自动计算学期、类别下拉列表
+  const currentSemesterOptions = useMemo(() => {
+    return semesterOptionsMap[defaultGrade] ?? [];
+  }, [defaultGrade]);
+
+  const currentExamTypeOptions = useMemo(() => {
+    return examTypeOptionsMap[defaultGrade] ?? [];
+  }, [defaultGrade]);
+
+  // 切换年级时清空学期、类别，防止不匹配数据
+  const handleGradeChange = (val: string) => {
+    setDefaultGrade(val);
+    setDefaultSemester("");
+    setExamType("");
+  };
+  // =================================================================
 
   // ===== 图片上传 =====
   const handleUpload = async (file: File) => {
@@ -201,11 +265,12 @@ export default function AddPage() {
         return null;
       }
 
+      // ========== 核心修改：兜底不再写死高中 ==========
       list.push({
         source: y.source || source.trim(),
         number: y.number || '',
         type: finalType,
-        grade: y.grade || defaultGrade || '高中',
+        grade: y.grade || defaultGrade,
         semester: y.semester || defaultSemester,
         exam_type: y.exam_type || examType,
         difficulty: y.difficulty != null && y.difficulty !== '' ? Number(y.difficulty) : null,
@@ -301,36 +366,44 @@ export default function AddPage() {
 
         <label className={styles.metaLabel}>
           年级
-          <select className={styles.metaSelect} value={defaultGrade} onChange={e => setDefaultGrade(e.target.value)}>
-            <option value="高中">高中</option>
-            <option value="高一">高一</option>
-            <option value="高二">高二</option>
-            <option value="高三">高三</option>
+          {/* 下拉选项从 env 列表自动渲染，切换触发重置学期类别 */}
+          <select
+            className={styles.metaSelect}
+            value={defaultGrade}
+            onChange={e => handleGradeChange(e.target.value)}
+          >
+            {clientEnv.gradeList.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
           </select>
         </label>
 
         <label className={styles.metaLabel}>
           学期
-          <select className={styles.metaSelect} value={defaultSemester} onChange={e => setDefaultSemester(e.target.value)}>
+          <select
+            className={styles.metaSelect}
+            value={defaultSemester}
+            onChange={e => setDefaultSemester(e.target.value)}
+          >
             <option value="">（不设默认）</option>
-            <option value="高一上">高一上</option>
-            <option value="高一下">高一下</option>
-            <option value="高二上">高二上</option>
-            <option value="高二下">高二下</option>
-            <option value="高三上">高三上</option>
-            <option value="高三下">高三下</option>
+            {currentSemesterOptions.map(item => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
           </select>
         </label>
 
         <label className={styles.metaLabel}>
           类别
-          <select className={styles.metaSelect} value={examType} onChange={e => setExamType(e.target.value)}>
-            <option value="">（不设默认）</option>
-            <option value="高考真题">高考真题</option>
-            <option value="期中考试">期中考试</option>
-            <option value="期末考试">期末考试</option>
-            <option value="模拟题">模拟题</option>
+          <select
+            className={styles.metaSelect}
+            value={examType}
+            onChange={e => setExamType(e.target.value)}
+          >
             <option value="练习题">练习题</option>
+            {/* <option value="">（不设默认）</option> */}
+            {currentExamTypeOptions.map(item => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
           </select>
         </label>
 
@@ -347,6 +420,33 @@ export default function AddPage() {
 
         <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
           {saving ? '入库中...' : `确认入库 (${questions.length} 题)`}
+        </button>
+        <button
+          onClick={() => router.push('/')}
+          style={{
+            padding: '0.65rem 1.4rem',
+            border: '1px solid #999',
+            borderRadius: '8px',
+            backgroundColor: 'transparent',
+            fontSize: '0.92rem',
+            cursor: 'pointer',
+            transition: '0.2s all',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+          onMouseOver={(e) => {
+            const btn = e.target as HTMLButtonElement;
+            btn.style.background = '#edf2ff';
+            btn.style.borderColor = 'var(--accent)';
+          }}
+          onMouseOut={(e) => {
+            const btn = e.target as HTMLButtonElement;
+            btn.style.background = 'transparent';
+            btn.style.borderColor = '#999';
+          }}
+        >
+          ← 返回首页
         </button>
       </div>
 
@@ -420,7 +520,28 @@ export default function AddPage() {
           <textarea
             ref={textareaRef}
             className={styles.textarea}
-            placeholder={`粘贴 AI 格式化好的题目…&#10;&#10;格式示例：&#10;## 题目&#10;已知集合 A = {x | x > 1}，求补集 [选]&#10;&#10;## 选项&#10;A．{x | x ≤ 1}&#10;B．{x | x ≥ 1}&#10;&#10;## 答案&#10;A&#10;&#10;## 解析&#10;…（可选）&#10;&#10;==========&#10;&#10;（多道题用 ========== 分隔）&#10;&#10;💡 截图后 Ctrl+V 可直接粘贴图片&#10;💡 点击右侧卡片可跳转到左侧原文`}
+            placeholder={`粘贴 AI 格式化好的题目…
+
+格式示例：
+## 题目
+已知集合 A = {x | x > 1}，求补集 [选]
+
+## 选项
+A．{x | x ≤ 1}
+B．{x | x ≥ 1}
+
+## 答案
+A
+
+## 解析
+…（可选）
+
+==========
+
+（多道题用 ========== 分隔）
+
+💡 截图后 Ctrl+V 可直接粘贴图片
+💡 点击右侧卡片可跳转到原文`}
             value={input}
             onChange={e => setInput(e.target.value)}
             onMouseUp={handleCursorMove}   // 鼠标点击/拖选后更新高亮
@@ -469,7 +590,7 @@ export default function AddPage() {
                     {(() => {
                       const y = q.yaml;
                       const vals: string[] = [];
-                      vals.push(y.grade || defaultGrade || '高中');
+                      vals.push(y.grade || defaultGrade);
                       const sem = y.semester || defaultSemester;
                       if (sem) vals.push(sem);
                       const et = y.exam_type || examType;

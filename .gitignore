@@ -32,7 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-
+# Pandoc 工具（不提交到仓库）
+src/tool/pandoc-3.10/
+tools/pandoc/
+tool/pandoc/
 # vercel
 .vercel
 

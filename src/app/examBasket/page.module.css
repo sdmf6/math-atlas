@@ -1,0 +1,367 @@
+.container {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0.5rem 0.75rem;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-size: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+/* 元数据栏 */
+.metaBar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.metaLabel {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  gap: 0.15rem;
+}
+
+.metaInput {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  width: 110px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
+.metaInput:focus {
+  border-color: var(--accent);
+}
+
+.metaSelect {
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
+.metaSelect:focus {
+  border-color: var(--accent);
+}
+
+.saveBtn {
+  padding: 0.35rem 1rem;
+  border: none;
+  border-radius: 5px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.saveBtn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.saveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.msgOk {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: #e6ffed;
+  border: 1px solid #52c41a;
+  border-radius: 6px;
+  color: #389e0d;
+  font-size: 0.88rem;
+}
+
+.msgErr {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: #fff1f0;
+  border: 1px solid #ff4d4f;
+  border-radius: 6px;
+  color: #cf1322;
+  font-size: 0.88rem;
+}
+
+/* 双栏 */
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.leftPanel,
+.rightPanel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.panelHeader {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.uploadBtn {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  transition: opacity 0.15s;
+}
+
+.uploadBtn:hover {
+  opacity: 0.7;
+}
+
+.textarea {
+  width: 100%;
+  flex: 1;
+  padding: 1rem;
+  border: none;
+  resize: none;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+
+.textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.previewList {
+  padding: 0.75rem;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* 预览卡片 */
+.card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.85rem;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* 高亮卡片：左侧光标所在位置对应的卡片 */
+.cardHighlighted {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+  background: var(--surface-alt);
+}
+
+.cardMeta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.yamlTag {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.cardIdx {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.cardType {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  padding: 0.1rem 0.5rem;
+  border-radius: 3px;
+}
+
+.cardSection {
+  font-size: 0.92rem;
+  line-height: 1.8;
+}
+
+/* 卡片中 Markdown 表格的边框 */
+.cardSection :global(table) {
+  border-collapse: collapse;
+  margin: 0.4rem 0;
+}
+
+.cardSection :global(th),
+.cardSection :global(td) {
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.5rem;
+  text-align: center;
+  font-size: 0.82rem;
+}
+
+.cardSection :global(th) {
+  background: var(--surface-alt);
+  font-weight: 600;
+}
+
+.cardOption {
+  font-size: 0.88rem;
+  margin-top: 0.35rem;
+}
+
+.cardAnswer {
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  color: var(--text);
+}
+
+.cardDetail {
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+}
+
+.cardDetail summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+.cardDetail > *:not(summary) {
+  margin-top: 0.3rem;
+}
+
+/* 冲突弹窗 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+.dialogTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.dialogBody {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+
+.conflictList {
+  margin: 0.5rem 0;
+  padding-left: 1.2rem;
+  font-size: 0.8rem;
+  font-family: monospace;
+  color: var(--text-muted);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.conflictList li {
+  margin-bottom: 0.2rem;
+}
+
+.dialogActions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.dialogBtnPrimary,
+.dialogBtnSecondary {
+  padding: 0.4rem 1rem;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  transition: opacity 0.15s;
+}
+
+.dialogBtnPrimary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.dialogBtnPrimary:hover,
+.dialogBtnSecondary:hover {
+  opacity: 0.85;
+}

@@ -1011,7 +1011,7 @@ export default function FilterableTable({ questions }: { questions: QuestionMeta
             <button className={styles.btnAction} onClick={copyAsLatex}>复制为 LaTeX</button>
             <button className={styles.btnAction} onClick={downloadLatexZip}>打包下载 LaTeX (.zip)</button>
             <button className={styles.btnAction} onClick={exportToLocal}>LaTeX 导出到本地</button>
-            <button className={styles.btnAction} onClick={downloadWord}>打包下载 Word (.docx)</button>
+            {/* <button className={styles.btnAction} onClick={downloadWord}>Word 导出到本地</button> */}
 
             <button className={styles.btnAction} onClick={addToQuestionBar}>
               📋 加入试题栏

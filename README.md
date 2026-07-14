@@ -17,7 +17,7 @@ Pandoc（可选，用于 Word 导出）
 
 Pandoc 用于生成高质量的 Word 文档。如不安装，程序将使用浏览器端生成（latex公式无法转换）。
 
-- 访问 [nodejs.org](https://github.com/jgm/pandoc/releases/tag/3.10) 下载 
+- 访问 [pandoc](https://github.com/jgm/pandoc/releases/tag/3.10) 下载
 - pandoc-3.10-windows-x86_64.zip
 - zip或msi都可以
 - 下载后解压到该项目的tool目录下
@@ -84,15 +84,8 @@ NEXT_PUBLIC_DEFAULT_SUBJECT_SUFFIX=数学
 ## 功能
 
 - 按年级、来源、题型、难度、知识点筛选题目
-
 - 勾选题目生成讲义（Markdown / LaTeX 打包下载，含图片）
-
 - 深色/浅色模式切换
-
 - Obsidian 一键跳转
-
 - 试题篮功能
-
 - word导出功能，适配ee
-
-  
